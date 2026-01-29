@@ -25,20 +25,19 @@ def _ensure_exists(path: Path) -> None:
 
 
 def _generate_output_path(original_path: Path, suffix: str) -> Path:
-    output_dir = original_path.parent
+    output_dir = Path(__file__).parent.parent / "output"
     stem = original_path.stem
-    extension = original_path.suffix or ".mid"
-    for _ in range(10):
+    extension = ".mid"
+    while True:
         candidate = output_dir / f"{stem}-{suffix}-{uuid4().hex[:8]}{extension}"
         if not candidate.exists():
             return candidate.resolve()
-    raise FileExistsError("Failed to generate a unique output path.")
 
 
 def _get_midi_meta(midi: mido.MidiFile) -> MidiMeta:
-    bpm = 120.0
-    numerator = 4
-    denominator = 4
+    bpm = None
+    numerator = None
+    denominator = None
     for track in midi.tracks:
         for msg in track:
             if msg.type == "set_tempo":
@@ -46,8 +45,9 @@ def _get_midi_meta(midi: mido.MidiFile) -> MidiMeta:
             if msg.type == "time_signature":
                 numerator = msg.numerator
                 denominator = msg.denominator
-        if bpm != 120.0 or (numerator, denominator) != (4, 4):
+        if bpm is not None and numerator is not None and denominator is not None:
             break
+    # todo: use existing library for smart detection
     return MidiMeta(bpm=bpm, numerator=numerator, denominator=denominator)
 
 
