@@ -23,7 +23,8 @@ def build_index(database_root: Path) -> dict:
     entries: list[dict] = []
     year_dirs = sorted(path for path in maestro_root.glob("20??") if path.is_dir())
     for year_dir in year_dirs:
-        for midi_path in sorted(year_dir.glob("*.mid")):
+        midi_paths = sorted({*year_dir.glob("*.mid"), *year_dir.glob("*.midi")})
+        for midi_path in midi_paths:
             midi = mido.MidiFile(midi_path)
             melody_sequence = extract_melody_track(midi)
             if not melody_sequence:
