@@ -1,4 +1,5 @@
 # Chatpiano MIDI Tool Server
+AI-generated.  
 
 Minimal MIDI tool server and database indexing utilities.
 

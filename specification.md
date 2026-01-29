@@ -1,4 +1,5 @@
 # MIDI Tool Server – REST API Specification
+AI-generated.  
 
 ## Overview
 

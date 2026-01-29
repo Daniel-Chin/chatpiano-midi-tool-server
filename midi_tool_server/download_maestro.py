@@ -1,4 +1,6 @@
-"""Download and extract the MAESTRO v3.0.0 MIDI dataset.
+"""
+AI-generated.  
+Download and extract the MAESTRO v3.0.0 MIDI dataset.
 
 The MAESTRO dataset contains ~1,276 MIDI files of classical piano
 performances with metadata including composer, title, and year.
