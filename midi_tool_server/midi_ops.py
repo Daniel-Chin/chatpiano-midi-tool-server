@@ -170,8 +170,15 @@ def extract_melody_track(midi: mido.MidiFile) -> list[int]:
     if results is not None:
         return results
     
-    # print([t.name for t in midi.tracks])
-    return []
+    try:
+        pop909_mel_track, = [t for t in midi.tracks if t.name == 'MELODY']
+    except ValueError:
+        print('Warning: no melody track found:', [t.name for t in midi.tracks])
+        return []
+    print('Warning: not strictly monophonic.')
+    results = extract_pitch_sequence(pop909_mel_track, 99999.0)
+    assert results is not None
+    return results
 
 
 def extract_pitch_sequence(
@@ -192,6 +199,6 @@ def extract_pitch_sequence(
                 continue
             active_notes.pop(msg.note)
             for _, other_start_time in active_notes.items():
-                if msg.time - other_start_time < monophonicity_tolerance_sec:
+                if msg.time - other_start_time >= monophonicity_tolerance_sec:
                     return None
     return sequence
