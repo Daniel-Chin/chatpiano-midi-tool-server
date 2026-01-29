@@ -33,10 +33,27 @@ def change_tempo(path: Path, ratio: float) -> Path:
     if ratio <= 0:
         raise ValueError("ratio must be > 0")
     midi = mido.MidiFile(path)
+    has_tempo_meta = False
     for track in midi.tracks:
         for msg in track:
             if msg.type == "set_tempo":
+                has_tempo_meta = True
                 msg.tempo = max(1, int(msg.tempo / ratio))
+    if not has_tempo_meta:
+        new_midi = mido.MidiFile()
+        for track in midi.tracks:
+            new_track = mido.MidiTrack()
+            new_midi.tracks.append(new_track)
+            tick_rounded = 0
+            tick_precise = 0.0
+            for msg in track:
+                tick_precise += msg.time / ratio
+                new_tick = int(round(tick_precise))
+                delta_tick = new_tick - tick_rounded
+                tick_rounded = new_tick
+                new_msg = msg.copy(time=delta_tick)
+                new_track.append(new_msg)
+        midi = new_midi
     output_path = _generate_output_path(path, "tempo")
     midi.save(output_path)
     return output_path
