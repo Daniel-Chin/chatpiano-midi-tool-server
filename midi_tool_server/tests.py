@@ -65,6 +65,10 @@ def _write_minimal_midi(path: Path, *, note: int = 60, tempo: int = 500_000) -> 
     track.append(mido.MetaMessage('set_tempo', tempo=tempo, time=0))
     track.append(mido.Message('note_on', note=note, velocity=64, time=0))
     track.append(mido.Message('note_off', note=note, velocity=64, time=480))
+    track.append(mido.Message('note_on', note=note+2, velocity=64, time=100))
+    track.append(mido.Message('note_off', note=note+2, velocity=64, time=480))
+    track.append(mido.Message('note_on', note=note+3, velocity=64, time=100))
+    track.append(mido.Message('note_off', note=note+3, velocity=64, time=480))
     midi.save(path)
 
 
