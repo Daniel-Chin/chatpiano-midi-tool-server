@@ -5,6 +5,7 @@ AI-generated.
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,13 @@ from midi_tool_server.midi_ops import (
     extract_pitch_sequence,
     transpose,
 )
+
+
+logger = logging.getLogger(__name__)
+
+
+def _log_exc(message: str, exc: BaseException) -> None:
+    logger.error(message, exc_info=(type(exc), exc, exc.__traceback__))
 
 
 class ChangeTempoRequest(BaseModel):
@@ -71,6 +79,7 @@ app = FastAPI()
 
 @app.exception_handler(FileNotFoundError)
 async def handle_file_not_found(_: Request, exc: FileNotFoundError) -> JSONResponse:
+    _log_exc("File not found", exc)
     return error_response(
         "FILE_NOT_FOUND", str(exc), status.HTTP_404_NOT_FOUND, details={}
     )
@@ -78,6 +87,7 @@ async def handle_file_not_found(_: Request, exc: FileNotFoundError) -> JSONRespo
 
 @app.exception_handler(ValueError)
 async def handle_value_error(_: Request, exc: ValueError) -> JSONResponse:
+    _log_exc("Value error", exc)
     return error_response(
         "INVALID_ARGUMENT", str(exc), status.HTTP_400_BAD_REQUEST, details={}
     )
@@ -87,6 +97,7 @@ async def handle_value_error(_: Request, exc: ValueError) -> JSONResponse:
 async def handle_validation_error(
     _: Request, exc: RequestValidationError
 ) -> JSONResponse:
+    _log_exc("Request validation error", exc)
     return error_response(
         "INVALID_ARGUMENT",
         "Invalid request payload",
@@ -97,6 +108,7 @@ async def handle_validation_error(
 
 @app.exception_handler(Exception)
 async def handle_exception(_: Request, exc: Exception) -> JSONResponse:
+    _log_exc("Unhandled server exception", exc)
     return error_response(
         "INTERNAL_ERROR", "Unhandled server failure", status.HTTP_500_INTERNAL_SERVER_ERROR
     )
