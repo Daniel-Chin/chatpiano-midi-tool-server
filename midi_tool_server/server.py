@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field
 
-from midi_tool_server.index_db import INDEX_FILENAME
+from midi_tool_server.shared import PORT
 from midi_tool_server.midi_ops import (
     change_tempo,
     common_to_swing,
@@ -171,7 +171,7 @@ def hard_match_endpoint(payload: HardMatchRequest) -> JSONResponse:
 
 
 def run() -> None:
-    uvicorn.run(app, host="0.0.0.0", port=8765)
+    uvicorn.run(app, host="localhost", port=PORT)
 
 
 __all__ = ["app", "run"]

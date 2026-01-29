@@ -6,7 +6,10 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.128.0",
+    "matplotlib>=3.10.8",
     "mido>=1.3.3",
+    "pretty-midi>=0.2.11",
+    "requests>=2.32.5",
     "tqdm>=4.67.1",
     "uvicorn>=0.40.0",
 ]
@@ -24,3 +27,4 @@ package = true
 [project.scripts]
 midi-tool-server = "midi_tool_server.server:run"
 midi-db-index = "midi_tool_server.index_db:main"
+tests = "midi_tool_server.tests:tests"

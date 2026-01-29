@@ -7,8 +7,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable
 from uuid import uuid4
+import math
 
 import mido
+import pretty_midi
 
 
 def _ensure_exists(path: Path) -> None:
@@ -52,12 +54,66 @@ def transpose(path: Path, delta: int) -> Path:
     return output_path
 
 
+def _post_process_bpm(bpm_estimated_by_pretty_midi: float) -> float:
+    REFERENCE = 120.0
+    if bpm_estimated_by_pretty_midi <= 0.0:
+        return REFERENCE
+    expon = math.log2(bpm_estimated_by_pretty_midi / REFERENCE)
+    remainder = expon % 1.0
+    if remainder > 0.5:
+        remainder -= 1.0
+    return REFERENCE * (2 ** remainder)
+
+def _test_post_process_bpm():
+    from matplotlib import pyplot as plt
+    xs = [i for i in range(30, 301)]
+    ys = [_post_process_bpm(x) for x in xs]
+    plt.plot(xs, ys)
+    plt.xlim(0, 310)
+    plt.ylim(0, 200)
+    plt.show()
+
 def common_to_swing(path: Path) -> Path:
     _ensure_exists(path)
     midi = mido.MidiFile(path)
-    bpm = 120   # todo
-    ...
+    e_tempo = pretty_midi.PrettyMIDI(str(path)).estimate_tempo()
+    bpm = _post_process_bpm(e_tempo)
+    beats_per_bar = 2   # assumed
 
+    # cached vars
+    beats_per_sec = bpm / 60.0
+    sec_per_bar = beats_per_bar / beats_per_sec
+    microsec_per_beat = 60_000_000 / bpm
+
+    def time_remap(t: float) -> float:
+        n_bar = int(t / sec_per_bar)
+        bar_start = n_bar * sec_per_bar
+        t_in_bar = t - bar_start
+        ratio_in_bar = t_in_bar / sec_per_bar
+        if ratio_in_bar < 0.5:
+            new_ratio = ratio_in_bar * 4 / 3.0
+        else:
+            new_ratio = 0.5 + (ratio_in_bar - 0.5) * 2 / 3.0
+        return bar_start + new_ratio * sec_per_bar
+    
+    new_midi = mido.MidiFile()
+    new_midi.ticks_per_beat = midi.ticks_per_beat
+    for track in midi.tracks:
+        new_track = mido.MidiTrack()
+        new_midi.tracks.append(new_track)
+        old_abs_time = 0.0
+        new_ticks_acc = 0
+        for msg in track:
+            old_abs_time += mido.tick2second(msg.time, midi.ticks_per_beat, microsec_per_beat)
+            new_abs_time = time_remap(old_abs_time)
+            new_tick = mido.second2tick(new_abs_time, midi.ticks_per_beat, microsec_per_beat)
+            new_delta_tick = new_tick - new_ticks_acc
+            new_ticks_acc = new_tick
+            new_msg = msg.copy(time=new_delta_tick)
+            new_track.append(new_msg)
+    output_path = _generate_output_path(path, "swing")
+    new_midi.save(output_path)
+    return output_path
 
 def extract_melody_track(midi: mido.MidiFile) -> list[int]:
     def try_tracks(tracks: Iterable[mido.MidiTrack]) -> list[int] | None:
@@ -118,20 +174,23 @@ def extract_pitch_sequence(
 ) -> list[int] | None:
     sequence: list[int] = []
     active_notes = dict[int, float]()
-    abs_time = 0.0
+    abs_tick = 0.0
     for msg in track:
-        abs_time += mido.tick2second(msg.time, 480, 500000)  # assuming 120bpm, 480ppq
+        abs_tick += mido.tick2second(msg.time, 480, 500000)  # assuming 120bpm, 480ppq
         if msg.type == "note_on" and msg.velocity > 0:
             if msg.note in active_notes:
                 continue    # nobody cares
             sequence.append(msg.note)
-            active_notes[msg.note] = abs_time
+            active_notes[msg.note] = abs_tick
         elif msg.type == "note_off" or (msg.type == "note_on" and msg.velocity == 0):
             if msg.note not in active_notes:
                 print('Warning: note_off for inactive note')
                 continue
             active_notes.pop(msg.note)
             for _, other_start_time in active_notes.items():
-                if abs_time - other_start_time >= monophonicity_tolerance_sec:
+                if abs_tick - other_start_time >= monophonicity_tolerance_sec:
                     return None
     return sequence
+
+if __name__ == "__main__":
+    _test_post_process_bpm()
