@@ -95,6 +95,7 @@ def common_to_swing(path: Path) -> Path:
     midi = mido.MidiFile(path)
     e_tempo = pretty_midi.PrettyMIDI(str(path)).estimate_tempo()
     bpm = _post_process_bpm(e_tempo)
+    print(f'{bpm = }')
     beats_per_bar = 2   # assumed
 
     # cached vars
@@ -110,7 +111,7 @@ def common_to_swing(path: Path) -> Path:
         if ratio_in_bar < 0.5:
             new_ratio = ratio_in_bar * 4 / 3.0
         else:
-            new_ratio = 0.5 + (ratio_in_bar - 0.5) * 2 / 3.0
+            new_ratio = 2 / 3.0 + (ratio_in_bar - 0.5) * 2 / 3.0
         return bar_start + new_ratio * sec_per_bar
     
     new_midi = mido.MidiFile()
@@ -128,6 +129,13 @@ def common_to_swing(path: Path) -> Path:
             new_ticks_acc = new_tick
             new_msg = msg.copy(time=new_delta_tick)
             new_track.append(new_msg)
+            print(f'{msg.time=}')
+            print(f'{old_abs_time=}')
+            print(f'{new_abs_time=}')
+            print(f'{new_tick=}')
+            print(f'{new_delta_tick=}')
+            print(f'{new_ticks_acc=}')
+            print()
     output_path = _generate_output_path(path, "swing")
     new_midi.save(output_path)
     return output_path
