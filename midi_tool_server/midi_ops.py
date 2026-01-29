@@ -129,19 +129,69 @@ def common_to_swing(path: Path) -> Path:
 
 
 def extract_melody_track(midi: mido.MidiFile) -> list[int]:
-    melody_tracks = [
-        track
-        for track in midi.tracks
-        if track.name and "melody" in track.name.lower()
-    ]
-    if len(melody_tracks) != 1:
-        return []
-    return extract_pitch_sequence(melody_tracks[0])
+    def try_tracks(tracks: Iterable[mido.MidiTrack]) -> list[int] | None:
+        t_s = [
+            (track, extract_pitch_sequence(track))
+            for track in tracks
+        ]
+        strong_candidates = [(t, s) for t, s in t_s if s is not None and len(s) > 3]
+        if not strong_candidates:
+            return None
+        # pick the longest
+        strong_candidates.sort(key=lambda item: len(item[1]), reverse=True)
+        return strong_candidates[0][1]
+
+    tracks = [((t.name or '').lower(), t) for t in midi.tracks]
+    candidates = []
+    remaining = []
+    for name, track in tracks:
+        if 'melody' in name or name == 'mel':
+            candidates.append(track)
+        else:
+            remaining.append((name, track))
+    results = try_tracks(candidates)
+    if results is not None:
+        return results
+    tracks = remaining
+    
+    candidates = []
+    remaining = []
+    for name, track in tracks:
+        if 'lead' in name:
+            candidates.append(track)
+        else:
+            remaining.append((name, track))
+    results = try_tracks(candidates)
+    if results is not None:
+        return results
+    tracks = remaining
+
+    results = try_tracks([track for name, track in tracks])
+    if results is not None:
+        return results
+    
+    # print([t.name for t in midi.tracks])
+    return []
 
 
-def extract_pitch_sequence(track: Iterable[mido.Message]) -> list[int]:
+def extract_pitch_sequence(
+    track: Iterable[mido.Message], 
+    monophonicity_tolerance_sec: float = 0.1,
+) -> list[int] | None:
     sequence: list[int] = []
+    active_notes = dict[int, float]()
     for msg in track:
         if msg.type == "note_on" and msg.velocity > 0:
+            if msg.note in active_notes:
+                continue    # nobody cares
             sequence.append(msg.note)
+            active_notes[msg.note] = msg.time
+        elif msg.type == "note_off" or (msg.type == "note_on" and msg.velocity == 0):
+            if msg.note not in active_notes:
+                print('Warning: note_off for inactive note')
+                continue
+            active_notes.pop(msg.note)
+            for _, other_start_time in active_notes.items():
+                if msg.time - other_start_time < monophonicity_tolerance_sec:
+                    return None
     return sequence

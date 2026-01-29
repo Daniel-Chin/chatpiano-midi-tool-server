@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 import mido
+from tqdm import tqdm
 
 from midi_tool_server.midi_ops import extract_melody_track
 
@@ -22,22 +23,28 @@ def build_index(database_root: Path) -> dict:
 
     entries: list[dict] = []
     year_dirs = sorted(path for path in maestro_root.glob("20??") if path.is_dir())
+    n_ok = 0
+    n_failed = 0
     for year_dir in year_dirs:
         midi_paths = sorted({*year_dir.glob("*.mid"), *year_dir.glob("*.midi")})
-        for midi_path in midi_paths:
+        for midi_path in tqdm(midi_paths, desc=f"Indexing {year_dir.name}"):
             midi = mido.MidiFile(midi_path)
             melody_sequence = extract_melody_track(midi)
-            if not melody_sequence:
-                print(
-                    f"Warning: expected exactly one melody track in {midi_path}",
-                    file=sys.stderr,
+            if melody_sequence:
+                n_ok += 1
+                entries.append(
+                    {
+                        "path": str(midi_path.resolve()),
+                        "melody_sequence": melody_sequence,
+                    }
                 )
-            entries.append(
-                {
-                    "path": str(midi_path.resolve()),
-                    "melody_sequence": melody_sequence,
-                }
-            )
+            else:
+                n_failed += 1
+                # print(
+                #     f"Warning: failed to extract melody track in {midi_path}",
+                #     file=sys.stderr,
+                # )
+    print(f'{n_ok = }, {n_failed = }')
     return {
         "database_root": str(database_root.resolve()),
         "entries": entries,
@@ -45,8 +52,8 @@ def build_index(database_root: Path) -> dict:
 
 
 def write_index(database_root: Path) -> Path:
-    index_data = build_index(database_root)
     index_path = database_root / "maestro" / INDEX_FILENAME
+    index_data = build_index(database_root)
     index_path.write_text(json.dumps(index_data, indent=2), encoding="utf-8")
     return index_path
 
