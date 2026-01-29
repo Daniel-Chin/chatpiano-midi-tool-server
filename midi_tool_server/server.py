@@ -8,6 +8,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Any
+import functools
 
 import mido
 import uvicorn
@@ -16,7 +17,7 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field
 
-from midi_tool_server.shared import PORT
+from midi_tool_server.shared import PORT, USING_POP909_ONLY, INDEX_POP909
 from midi_tool_server.midi_ops import (
     change_tempo,
     common_to_swing,
@@ -133,9 +134,12 @@ def swing_endpoint(payload: CommonToSwingRequest) -> JSONResponse:
     output_path = common_to_swing(Path(payload.path_to_original_midi))
     return ok_response({"path_to_output_midi": str(output_path)})
 
-
-def _load_index(database_root: Path) -> dict:
-    index_path = database_root / "maestro" / INDEX_FILENAME
+@functools.lru_cache(maxsize=1)
+def _load_index() -> dict:
+    # >>>
+    assert USING_POP909_ONLY
+    index_path = INDEX_POP909
+    # <<<
     if not index_path.exists():
         raise FileNotFoundError(f"Index not found at {index_path}")
     return json.loads(index_path.read_text(encoding="utf-8"))
@@ -144,7 +148,7 @@ def _load_index(database_root: Path) -> dict:
 def _query_sequence(path: Path) -> list[int]:
     midi = mido.MidiFile(path)
     for track in midi.tracks:
-        sequence = extract_pitch_sequence(track)
+        sequence = extract_pitch_sequence(track, 9999.9)
         if sequence:
             return sequence
     return []
@@ -168,7 +172,7 @@ def hard_match_endpoint(payload: HardMatchRequest) -> JSONResponse:
     if not query_path.exists():
         raise FileNotFoundError(f"Query MIDI not found: {query_path}")
 
-    index_data = _load_index(database_root)
+    index_data = _load_index()
     query_sequence = _query_sequence(query_path)
     if not query_sequence:
         return ok_response({"paths_to_matched_song": []})
