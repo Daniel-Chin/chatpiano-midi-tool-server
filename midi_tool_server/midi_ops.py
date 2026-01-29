@@ -118,18 +118,20 @@ def extract_pitch_sequence(
 ) -> list[int] | None:
     sequence: list[int] = []
     active_notes = dict[int, float]()
+    abs_time = 0.0
     for msg in track:
+        abs_time += mido.tick2second(msg.time, 480, 500000)  # assuming 120bpm, 480ppq
         if msg.type == "note_on" and msg.velocity > 0:
             if msg.note in active_notes:
                 continue    # nobody cares
             sequence.append(msg.note)
-            active_notes[msg.note] = msg.time
+            active_notes[msg.note] = abs_time
         elif msg.type == "note_off" or (msg.type == "note_on" and msg.velocity == 0):
             if msg.note not in active_notes:
                 print('Warning: note_off for inactive note')
                 continue
             active_notes.pop(msg.note)
             for _, other_start_time in active_notes.items():
-                if msg.time - other_start_time >= monophonicity_tolerance_sec:
+                if abs_time - other_start_time >= monophonicity_tolerance_sec:
                     return None
     return sequence
